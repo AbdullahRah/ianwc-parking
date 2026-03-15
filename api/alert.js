@@ -67,16 +67,17 @@ export default async function handler(req, res) {
     const firedAt = Date.now();
 
     const carBuf = Buffer.from(carImg.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-    await put('parking/car.jpg', carBuf, { access: 'public', contentType: 'image/jpeg' });
+    await put('parking/car.jpg', carBuf, { access: 'public', contentType: 'image/jpeg', addRandomSuffix: false });
 
     if (plateImg) {
       const plateBuf = Buffer.from(plateImg.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-      await put('parking/plate.jpg', plateBuf, { access: 'public', contentType: 'image/jpeg' });
+      await put('parking/plate.jpg', plateBuf, { access: 'public', contentType: 'image/jpeg', addRandomSuffix: false });
     }
 
     await put('parking/state.json', JSON.stringify({ firedAt }), {
       access: 'public',
       contentType: 'application/json',
+      addRandomSuffix: false,
     });
 
     res.json({ success: true, firedAt, secondsLeft: 90 });
