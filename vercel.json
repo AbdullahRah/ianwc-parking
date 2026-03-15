@@ -1,10 +1,13 @@
 {
   "version": 2,
+  "crons": [
+    { "path": "/api/cron", "schedule": "* * * * *" }
+  ],
   "routes": [
-    { "src": "/admin",   "dest": "/admin.html" },
-    { "src": "/display", "dest": "/display.html" },
-    { "src": "/",        "dest": "/display.html" },
+    { "src": "/admin",    "dest": "/admin.html" },
+    { "src": "/display",  "dest": "/display.html" },
+    { "src": "/",         "dest": "/display.html" },
     { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/(.*)",    "dest": "/$1" }
+    { "src": "/(.*)",     "dest": "/$1" }
   ]
 }

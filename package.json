@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "description": "IANWC live parking alert system",
   "dependencies": {
-    "@neondatabase/serverless": "^0.10.4"
+    "firebase-admin": "^12.0.0"
   }
 }
