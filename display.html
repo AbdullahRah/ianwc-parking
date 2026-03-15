@@ -123,20 +123,12 @@
   </div>
 </div>
 
-<script type="module">
-  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-  const SUPABASE_URL = 'https://zhhbcwcaucmmcwgtghfn.supabase.co';
-  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoaGJjd2NhdWNtbWN3Z3RnaGZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NTc2MDUsImV4cCI6MjA4OTEzMzYwNX0.yTG3zs-r2THULL6Z_DEaUijyGtxlQ2dadWEyp8580dw';
+<script>
   const TOTAL = 5 * 60;
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-  let cdTimer       = null;
-  let secondsLeft   = 0;
+  let secondsLeft  = 0;
+  let cdTimer      = null;
   let activeFiredAt = null;
 
-  // ── CLOCK ────────────────────────────────────────────────
   function updateClock() {
     const t = new Date();
     const s = `${t.getHours().toString().padStart(2,'0')}:${t.getMinutes().toString().padStart(2,'0')}`;
@@ -146,7 +138,6 @@
   setInterval(updateClock, 1000);
   updateClock();
 
-  // ── SHOW / HIDE ───────────────────────────────────────────
   function showAlert(carUrl, plateUrl, firedAt) {
     activeFiredAt = firedAt;
     document.getElementById('car-img').src = carUrl;
@@ -172,7 +163,6 @@
     document.getElementById('standby').style.display = 'flex';
   }
 
-  // ── COUNTDOWN ────────────────────────────────────────────
   function startCountdown(s) {
     clearInterval(cdTimer);
     secondsLeft = s;
@@ -193,28 +183,20 @@
     document.getElementById('cbar-fill').style.width = `${(secondsLeft / TOTAL) * 100}%`;
   }
 
-  // ── INITIAL LOAD ──────────────────────────────────────────
-  const { data: initial } = await supabase
-    .from('alert_state').select('*').eq('id', 1).single();
-
-  if (initial?.active) {
-    const elapsed = Date.now() - initial.fired_at;
-    if (elapsed < TOTAL * 1000) {
-      showAlert(initial.car_url, initial.plate_url, initial.fired_at);
-    }
+  async function poll() {
+    try {
+      const res  = await fetch('/api/alert');
+      const data = await res.json();
+      if (data.active) {
+        if (data.firedAt !== activeFiredAt) showAlert(data.carUrl, data.plateUrl, data.firedAt);
+      } else {
+        if (activeFiredAt !== null) hideAlert();
+      }
+    } catch (_) {}
   }
 
-  // ── REAL-TIME LISTENER ────────────────────────────────────
-  supabase.channel('alert-display')
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'alert_state' }, (payload) => {
-      const data = payload.new;
-      if (data.active && data.fired_at !== activeFiredAt) {
-        showAlert(data.car_url, data.plate_url, data.fired_at);
-      } else if (!data.active && activeFiredAt !== null) {
-        hideAlert();
-      }
-    })
-    .subscribe();
+  poll();
+  setInterval(poll, 3000);
 </script>
 </body>
 </html>

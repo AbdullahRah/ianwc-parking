@@ -6,7 +6,7 @@
 <title>IANWC — Fire Parking Alert</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { --red:#FF1A1A;--amber:#FFA500;--green:#22c55e;--bg:#080808;--panel:#111;--border:#222;--text:#F2F2F2;--muted:#555; }
+  :root{--red:#FF1A1A;--amber:#FFA500;--green:#22c55e;--bg:#080808;--panel:#111;--border:#222;--text:#F2F2F2;--muted:#555}
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:32px 20px 60px;gap:24px}
   .page-header{width:100%;max-width:560px;display:flex;align-items:center;justify-content:space-between}
@@ -80,9 +80,10 @@
 <div class="card">
   <div class="card-header">
     <h1>🚨 FIRE <em>PARKING</em><br>ALERT</h1>
-    <p>Upload photos below. The TV display updates instantly and auto-clears after 5 minutes.</p>
+    <p>Upload photos below. The TV display updates within seconds and auto-clears after 5 minutes.</p>
   </div>
   <div class="card-body">
+
     <label class="upload-zone car-zone" id="car-zone" for="car-input">
       <img class="zone-preview" id="car-preview" alt="">
       <div class="zone-inner">
@@ -113,6 +114,7 @@
     <div id="status"></div>
     <button id="fire-btn" disabled>🚨 FIRE ALERT ON TV</button>
     <button id="clear-btn">🗑 Cancel Alert &amp; Clear TV Display</button>
+
   </div>
 </div>
 
@@ -121,16 +123,15 @@
 <script type="module">
   import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-  const SUPABASE_URL  = 'https://zhhbcwcaucmmcwgtghfn.supabase.co';
-  const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoaGJjd2NhdWNtbWN3Z3RnaGZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NTc2MDUsImV4cCI6MjA4OTEzMzYwNX0.yTG3zs-r2THULL6Z_DEaUijyGtxlQ2dadWEyp8580dw';
-  const BUCKET        = 'parking-alerts';
-  const DURATION      = 5 * 60; // seconds
+  const supabase = createClient(
+    'https://zhhbcwcaucmmcwgtghfn.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoaGJjd2NhdWNtbWN3Z3RnaGZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NTc2MDUsImV4cCI6MjA4OTEzMzYwNX0.yTG3zs-r2THULL6Z_DEaUijyGtxlQ2dadWEyp8580dw'
+  );
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+  const BUCKET   = 'parking-alerts';
+  const DURATION = 5 * 60;
 
-  let carFile = null, plateFile = null;
-  let countdownTimer = null;
-  let currentPaths   = { car: null, plate: null };
+  let carFile = null, plateFile = null, countdownTimer = null;
 
   // ── FILE ZONES ───────────────────────────────────────────
   function setupZone(inputId, previewId, tickId, zoneId, onReady) {
@@ -148,7 +149,6 @@
   setupZone('car-input',   'car-preview',   'car-tick',   'car-zone',   f => carFile   = f);
   setupZone('plate-input', 'plate-preview', 'plate-tick', 'plate-zone', f => plateFile = f);
 
-  // ── STATUS + PROGRESS ────────────────────────────────────
   function setStatus(type, html) {
     const el = document.getElementById('status');
     el.className = type; el.innerHTML = html;
@@ -188,23 +188,17 @@
     });
   }
 
-  // ── UPLOAD TO SUPABASE STORAGE ───────────────────────────
+  // ── UPLOAD IMAGE TO SUPABASE STORAGE ─────────────────────
   async function uploadImage(file, path) {
     const dataUrl = await compressImage(file);
-    const res     = await fetch(dataUrl);
-    const blob    = await res.blob();
-
+    const blob    = await fetch(dataUrl).then(r => r.blob());
     const { error } = await supabase.storage
-      .from(BUCKET)
-      .upload(path, blob, { contentType: 'image/jpeg', upsert: true });
-
+      .from(BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: true });
     if (error) throw new Error(error.message);
-
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-    return data.publicUrl;
+    return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
   }
 
-  // ── FIRE ─────────────────────────────────────────────────
+  // ── FIRE ALERT ───────────────────────────────────────────
   document.getElementById('fire-btn').addEventListener('click', async () => {
     if (!carFile) return;
     document.getElementById('fire-btn').disabled = true;
@@ -212,42 +206,31 @@
     setStatus('loading', '<div class="spin"></div><span>Uploading photos…</span>');
 
     try {
-      // Delete previous images first
-      const { data: prev } = await supabase
-        .from('alert_state').select('car_path,plate_path').eq('id', 1).single();
-      if (prev?.car_path)   await supabase.storage.from(BUCKET).remove([prev.car_path]);
-      if (prev?.plate_path) await supabase.storage.from(BUCKET).remove([prev.plate_path]);
+      const ts = Date.now();
 
-      const ts      = Date.now();
-      const carPath = `${ts}/car.jpg`;
       setProgress(20, 'Uploading car photo…');
-      const carUrl  = await uploadImage(carFile, carPath);
+      const carUrl = await uploadImage(carFile, `${ts}/car.jpg`);
 
-      let plateUrl = null, platePath = null;
+      let plateUrl = null;
       if (plateFile) {
-        platePath = `${ts}/plate.jpg`;
         setProgress(60, 'Uploading plate photo…');
-        plateUrl  = await uploadImage(plateFile, platePath);
+        plateUrl = await uploadImage(plateFile, `${ts}/plate.jpg`);
       }
 
-      setProgress(90, 'Saving alert…');
-      const { error } = await supabase.from('alert_state').update({
-        active:    true,
-        fired_at:  ts,
-        car_url:   carUrl,
-        plate_url: plateUrl   || null,
-        car_path:  carPath,
-        plate_path: platePath || null,
-      }).eq('id', 1);
+      setProgress(90, 'Firing alert…');
+      const res  = await fetch('/api/alert', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ carUrl, plateUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Server error');
 
-      if (error) throw new Error(error.message);
-
-      currentPaths = { car: carPath, plate: platePath };
       setProgress(100, 'Done');
       document.getElementById('prog-wrap').classList.remove('show');
       setStatus('success', '✅ Alert is live on the TV display! Auto-clears in 5 minutes.');
       document.getElementById('clear-btn').classList.add('show');
-      startAdminCountdown(DURATION);
+      startCountdown(DURATION);
 
     } catch (err) {
       document.getElementById('prog-wrap').classList.remove('show');
@@ -260,12 +243,7 @@
   document.getElementById('clear-btn').addEventListener('click', async () => {
     setStatus('loading', '<div class="spin"></div><span>Clearing alert…</span>');
     try {
-      if (currentPaths.car)   await supabase.storage.from(BUCKET).remove([currentPaths.car]);
-      if (currentPaths.plate) await supabase.storage.from(BUCKET).remove([currentPaths.plate]);
-
-      await supabase.from('alert_state').update({ active: false }).eq('id', 1);
-      currentPaths = { car: null, plate: null };
-
+      await fetch('/api/alert', { method: 'DELETE' });
       setStatus('success', '✅ Alert cleared. TV is back on standby.');
       document.getElementById('clear-btn').classList.remove('show');
       document.getElementById('active-indicator').classList.remove('show');
@@ -277,11 +255,10 @@
   });
 
   // ── COUNTDOWN ────────────────────────────────────────────
-  function startAdminCountdown(seconds) {
+  function startCountdown(seconds) {
     clearInterval(countdownTimer);
-    const indicator = document.getElementById('active-indicator');
-    const display   = document.getElementById('ind-countdown');
-    indicator.classList.add('show');
+    document.getElementById('active-indicator').classList.add('show');
+    const display = document.getElementById('ind-countdown');
     let s = seconds;
     function tick() {
       const m  = Math.floor(s / 60);
@@ -289,7 +266,7 @@
       display.textContent = `${m}:${ss}`;
       if (s <= 0) {
         clearInterval(countdownTimer);
-        indicator.classList.remove('show');
+        document.getElementById('active-indicator').classList.remove('show');
         document.getElementById('clear-btn').classList.remove('show');
         document.getElementById('fire-btn').disabled = !carFile;
         setStatus('success', '✅ Alert expired and was automatically cleared.');
@@ -300,32 +277,19 @@
     countdownTimer = setInterval(tick, 1000);
   }
 
-  // ── WATCH ON LOAD ─────────────────────────────────────────
-  const { data: initial } = await supabase
-    .from('alert_state').select('*').eq('id', 1).single();
-
-  if (initial?.active) {
-    const elapsed   = Date.now() - initial.fired_at;
-    const remaining = Math.ceil((DURATION * 1000 - elapsed) / 1000);
-    if (remaining > 0) {
-      currentPaths = { car: initial.car_path, plate: initial.plate_path };
-      setStatus('success', `✅ Alert is live. ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2,'0')} remaining.`);
-      document.getElementById('clear-btn').classList.add('show');
-      startAdminCountdown(remaining);
-    }
-  }
-
-  supabase.channel('alert-admin')
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'alert_state' }, (payload) => {
-      const data = payload.new;
-      if (!data.active) {
-        document.getElementById('active-indicator').classList.remove('show');
-        document.getElementById('clear-btn').classList.remove('show');
-        clearInterval(countdownTimer);
-        document.getElementById('fire-btn').disabled = !carFile;
+  // ── CHECK ON LOAD ─────────────────────────────────────────
+  async function checkExisting() {
+    try {
+      const res  = await fetch('/api/alert');
+      const data = await res.json();
+      if (data.active) {
+        setStatus('success', `✅ Alert is live. ${Math.floor(data.secondsLeft / 60)}:${String(data.secondsLeft % 60).padStart(2,'0')} remaining.`);
+        document.getElementById('clear-btn').classList.add('show');
+        startCountdown(data.secondsLeft);
       }
-    })
-    .subscribe();
+    } catch (_) {}
+  }
+  checkExisting();
 </script>
 </body>
 </html>
