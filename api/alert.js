@@ -1,42 +1,57 @@
 // api/alert.js
-// State stored as a raw JSON file in Cloudinary — no Vercel KV or Blob needed.
-// Images are uploaded directly from the browser to Cloudinary (never touch Vercel).
-// Only the tiny state JSON (a few hundred bytes) is written here.
+// State stored as a tiny SVG image in Cloudinary (works with image-only presets).
+// JSON is base64-encoded inside the SVG <desc> tag and read back on GET.
+// Images are uploaded directly from the browser — this function never handles them.
 
 const CLOUD_NAME    = 'dvoigihv4';
 const UPLOAD_PRESET = 'qe91hdkq';
 const STATE_ID      = 'ianwc-parking-state';
 const DURATION_MS   = 90 * 1000;
 
+function makeStateSvg(data) {
+  const b64 = Buffer.from(JSON.stringify(data)).toString('base64');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><desc>${b64}</desc></svg>`;
+}
+
 async function readState() {
   try {
-    const r = await fetch(
-      `https://res.cloudinary.com/${CLOUD_NAME}/raw/upload/${STATE_ID}?t=${Date.now()}`
-    );
+    const url = `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${STATE_ID}.svg?t=${Date.now()}`;
+    const r = await fetch(url);
     if (!r.ok) return null;
-    return await r.json();
+    const svg = await r.text();
+    const match = svg.match(/<desc>([A-Za-z0-9+/=]+)<\/desc>/);
+    if (!match) return null;
+    return JSON.parse(Buffer.from(match[1], 'base64').toString());
   } catch {
     return null;
   }
 }
 
 async function writeState(data) {
-  const fd = new FormData();
-  fd.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' }), 'state.json');
-  fd.append('upload_preset', UPLOAD_PRESET);
-  fd.append('public_id', STATE_ID);
-  fd.append('invalidate', 'true');
+  const svg = makeStateSvg(data);
+  const body = new URLSearchParams({
+    file:           `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`,
+    upload_preset:  UPLOAD_PRESET,
+    public_id:      STATE_ID,
+    overwrite:      'true',
+    invalidate:     'true',
+  });
 
-  const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/raw/upload`, {
-    method: 'POST',
-    body: fd,
+  const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body:    body.toString(),
   });
 
   if (!r.ok) {
-    const err = await r.json().catch(() => ({}));
-    throw new Error(err.error?.message || 'Failed to save state');
+    const text = await r.text();
+    let msg = 'Failed to save state';
+    try { msg = JSON.parse(text).error.message; } catch {}
+    throw new Error(msg);
   }
 }
+
+export const config = { api: { bodyParser: true } };
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
