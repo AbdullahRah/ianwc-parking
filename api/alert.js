@@ -30,12 +30,17 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
+  // No caching on any response from this endpoint
+  res.setHeader('Cache-Control', 'no-store');
+
   // ── GET: poll for current alert ─────────────────────────
   if (req.method === 'GET') {
     const found = await getBlobs();
     if (!found.state) { res.json({ active: false }); return; }
 
-    const state = await fetch(found.state.url).then(r => r.json());
+    // Cache-bust the blob CDN URL so we always get the latest state
+    const stateRes = await fetch(`${found.state.url}?t=${Date.now()}`);
+    const state = await stateRes.json();
     const elapsed = Date.now() - state.firedAt;
 
     if (elapsed > DURATION_MS) {
@@ -66,18 +71,19 @@ export default async function handler(req, res) {
 
     const firedAt = Date.now();
 
+    const blobOpts = { access: 'public', addRandomSuffix: false, allowOverwrite: true };
+
     const carBuf = Buffer.from(carImg.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-    await put('parking/car.jpg', carBuf, { access: 'public', contentType: 'image/jpeg', addRandomSuffix: false });
+    await put('parking/car.jpg', carBuf, { ...blobOpts, contentType: 'image/jpeg' });
 
     if (plateImg) {
       const plateBuf = Buffer.from(plateImg.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-      await put('parking/plate.jpg', plateBuf, { access: 'public', contentType: 'image/jpeg', addRandomSuffix: false });
+      await put('parking/plate.jpg', plateBuf, { ...blobOpts, contentType: 'image/jpeg' });
     }
 
     await put('parking/state.json', JSON.stringify({ firedAt }), {
-      access: 'public',
+      ...blobOpts,
       contentType: 'application/json',
-      addRandomSuffix: false,
     });
 
     res.json({ success: true, firedAt, secondsLeft: 90 });
