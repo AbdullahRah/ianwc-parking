@@ -520,8 +520,8 @@
       const data = await res.json();
 
       if (data.active) {
-        if (data.carImg !== activeCarImg) {
-          showAlert(data.carImg, data.plateImg, data.secondsLeft);
+        if (data.carUrl !== activeCarImg) {
+          showAlert(data.carUrl, data.plateUrl, data.secondsLeft);
         }
       } else {
         if (activeCarImg) hideAlert();

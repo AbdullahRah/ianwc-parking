@@ -267,6 +267,37 @@
     max-width: 420px;
     line-height: 1.7;
   }
+
+  /* SETUP CARD */
+  .setup-card { border-color: #554400; background: #0e0c00; }
+  .setup-card .card-header { border-color: #554400; }
+  .setup-card .card-header h1 em { color: var(--amber); }
+
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+  .field-label { font-size: 0.75rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .field-input {
+    background: #0d0d0d; border: 1px solid #333; border-radius: 8px;
+    color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.95rem;
+    padding: 12px 14px; outline: none; transition: border-color 0.2s;
+  }
+  .field-input:focus { border-color: var(--amber); }
+
+  .setup-btn {
+    width: 100%; padding: 15px; background: var(--amber); color: #000;
+    border: none; border-radius: 8px; font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem; letter-spacing: 3px; cursor: pointer; transition: opacity 0.2s;
+  }
+  .setup-btn:hover { opacity: 0.88; }
+
+  .setup-hint { font-size: 0.78rem; color: #444; line-height: 1.7; }
+  .setup-hint strong { color: #666; }
+
+  /* PROGRESS BAR */
+  .prog-wrap { display: none; flex-direction: column; gap: 8px; }
+  .prog-wrap.show { display: flex; }
+  .prog-label { font-size: 0.75rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .prog-track { height: 5px; background: #1a1a1a; border-radius: 3px; overflow: hidden; }
+  .prog-fill { height: 100%; background: var(--amber); border-radius: 3px; width: 0%; transition: width 0.2s linear; }
 </style>
 </head>
 <body>
@@ -274,6 +305,29 @@
 <div class="page-header">
   <div class="logo">IANWC <em>//</em> Admin</div>
   <a class="tv-link" href="/display" target="_blank">📺 Open TV Display →</a>
+</div>
+
+<!-- CLOUDINARY SETUP (shown once if credentials not saved) -->
+<div class="card setup-card" id="setup-card" style="display:none;">
+  <div class="card-header">
+    <h1>⚙️ <em>CLOUDINARY</em><br>SETUP</h1>
+    <p>Images upload from your phone directly to Cloudinary — free, unlimited size. Takes 2 minutes to set up once.</p>
+  </div>
+  <div class="card-body">
+    <div class="field-group">
+      <label class="field-label">Cloud Name</label>
+      <input type="text" id="cloud-name-input" class="field-input" placeholder="e.g. dxyz123abc" autocorrect="off" autocapitalize="none">
+    </div>
+    <div class="field-group">
+      <label class="field-label">Upload Preset <span style="color:#333">(must be Unsigned)</span></label>
+      <input type="text" id="preset-input" class="field-input" placeholder="e.g. parking_unsigned" autocorrect="off" autocapitalize="none">
+    </div>
+    <button class="setup-btn" onclick="saveCloudinaryConfig()">Save &amp; Continue →</button>
+    <p class="setup-hint">
+      <strong>Cloud Name:</strong> cloudinary.com → Dashboard<br>
+      <strong>Upload Preset:</strong> Settings → Upload → Upload Presets → Add preset → set Signing Mode to <strong>Unsigned</strong>
+    </p>
+  </div>
 </div>
 
 <!-- ACTIVE ALERT INDICATOR -->
@@ -318,6 +372,11 @@
     </label>
     <input type="file" id="plate-input" accept="image/*">
 
+    <div class="prog-wrap" id="prog-wrap">
+      <div class="prog-label" id="prog-label">Uploading…</div>
+      <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+    </div>
+
     <div id="status"></div>
 
     <button id="fire-btn" disabled onclick="fireAlert()">
@@ -334,64 +393,90 @@
 <p class="footnote">Images are stored temporarily (90 seconds) then automatically deleted. Nothing is permanently stored.</p>
 
 <script>
-  let carB64 = null, plateB64 = null;
+  let carFile = null, plateFile = null;
   let countdownTimer = null;
 
-  // ── IMAGE COMPRESSION ────────────────────────────────────
-  // Resizes to max 1200px and re-encodes as JPEG at 75% quality.
-  // Keeps payload well under Vercel's 4.5MB function limit.
-  // Also converts HEIC/HEIF from iPhones to JPEG via canvas.
-  function compressImage(file, maxPx = 1200, quality = 0.75) {
-    return new Promise((resolve) => {
-      const img = new Image();
-      const objUrl = URL.createObjectURL(file);
-      img.onload = () => {
-        URL.revokeObjectURL(objUrl);
-        let { width, height } = img;
-        if (width > maxPx || height > maxPx) {
-          if (width > height) { height = Math.round(height * maxPx / width); width = maxPx; }
-          else                { width = Math.round(width * maxPx / height);  height = maxPx; }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width  = width;
-        canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+  // ── CLOUDINARY CONFIG ────────────────────────────────────
+  function getCloudinaryConfig() {
+    return {
+      cloudName:    localStorage.getItem('cld_cloud_name'),
+      uploadPreset: localStorage.getItem('cld_upload_preset'),
+    };
+  }
+
+  function saveCloudinaryConfig() {
+    const cloudName    = document.getElementById('cloud-name-input').value.trim();
+    const uploadPreset = document.getElementById('preset-input').value.trim();
+    if (!cloudName || !uploadPreset) {
+      alert('Please fill in both fields.');
+      return;
+    }
+    localStorage.setItem('cld_cloud_name', cloudName);
+    localStorage.setItem('cld_upload_preset', uploadPreset);
+    document.getElementById('setup-card').style.display = 'none';
+  }
+
+  function checkSetup() {
+    const { cloudName, uploadPreset } = getCloudinaryConfig();
+    if (!cloudName || !uploadPreset) {
+      document.getElementById('setup-card').style.display = 'flex';
+    }
+  }
+
+  // ── CLOUDINARY UPLOAD (direct from browser, no Vercel) ──
+  function uploadToCloudinary(file, label) {
+    return new Promise((resolve, reject) => {
+      const { cloudName, uploadPreset } = getCloudinaryConfig();
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('upload_preset', uploadPreset);
+
+      const xhr = new XMLHttpRequest();
+
+      xhr.upload.onprogress = (e) => {
+        if (!e.lengthComputable) return;
+        const pct = Math.round((e.loaded / e.total) * 100);
+        document.getElementById('prog-label').textContent = `${label} — ${pct}%`;
+        document.getElementById('prog-fill').style.width  = pct + '%';
       };
-      img.src = objUrl;
+
+      xhr.onload = () => {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status === 200) resolve(data.secure_url);
+        else reject(new Error(data.error?.message || 'Cloudinary upload failed'));
+      };
+      xhr.onerror = () => reject(new Error('Network error during upload'));
+
+      xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`);
+      xhr.send(fd);
     });
   }
 
-  // ── FILE HANDLING ───────────────────────────────────────
+  // ── FILE HANDLING ────────────────────────────────────────
   function setupZone(inputId, previewId, tickId, zoneId, onReady) {
     const input   = document.getElementById(inputId);
     const preview = document.getElementById(previewId);
     const tick    = document.getElementById(tickId);
     const zone    = document.getElementById(zoneId);
 
-    input.addEventListener('change', async function () {
+    input.addEventListener('change', function () {
       const file = this.files[0];
       if (!file) return;
-
-      // Show preview immediately from the original file
       const objUrl = URL.createObjectURL(file);
       preview.src = objUrl;
       preview.classList.add('show');
       tick.classList.add('show');
       zone.classList.add('ready');
-
-      // Compress before storing — converts to JPEG and shrinks large photos
-      const b64 = await compressImage(file);
-      onReady(b64);
+      onReady(file);
       checkReady();
     });
   }
 
-  setupZone('car-input',   'car-preview',   'car-tick',   'car-zone',   b64 => carB64   = b64);
-  setupZone('plate-input', 'plate-preview', 'plate-tick', 'plate-zone', b64 => plateB64 = b64);
+  setupZone('car-input',   'car-preview',   'car-tick',   'car-zone',   f => carFile   = f);
+  setupZone('plate-input', 'plate-preview', 'plate-tick', 'plate-zone', f => plateFile = f);
 
   function checkReady() {
-    document.getElementById('fire-btn').disabled = !carB64;
+    document.getElementById('fire-btn').disabled = !carFile;
   }
 
   // ── STATUS ───────────────────────────────────────────────
@@ -403,15 +488,33 @@
 
   // ── FIRE ALERT ───────────────────────────────────────────
   async function fireAlert() {
-    if (!carB64) return;
+    if (!carFile) return;
     document.getElementById('fire-btn').disabled = true;
-    setStatus('loading', '<div class="spin"></div><span>Uploading &amp; firing alert on TV…</span>');
+    document.getElementById('prog-wrap').classList.add('show');
+    document.getElementById('prog-fill').style.width = '0%';
+    setStatus('loading', '<div class="spin"></div><span>Uploading photos to Cloudinary…</span>');
 
     try {
+      // Upload car image — progress shown in bar
+      document.getElementById('prog-label').textContent = 'Uploading vehicle photo…';
+      const carUrl = await uploadToCloudinary(carFile, 'Vehicle photo');
+
+      // Upload plate image if provided
+      let plateUrl = null;
+      if (plateFile) {
+        document.getElementById('prog-label').textContent = 'Uploading plate photo…';
+        document.getElementById('prog-fill').style.width = '0%';
+        plateUrl = await uploadToCloudinary(plateFile, 'Plate photo');
+      }
+
+      document.getElementById('prog-wrap').classList.remove('show');
+      setStatus('loading', '<div class="spin"></div><span>Firing alert on TV…</span>');
+
+      // Only tiny URLs go to Vercel — no size limit issues
       const res = await fetch('/api/alert', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ carImg: carB64, plateImg: plateB64 || null })
+        body:    JSON.stringify({ carUrl, plateUrl }),
       });
 
       const data = await res.json();
@@ -422,6 +525,7 @@
       startAdminCountdown(90);
 
     } catch (err) {
+      document.getElementById('prog-wrap').classList.remove('show');
       setStatus('error', `❌ ${err.message}`);
       document.getElementById('fire-btn').disabled = false;
     }
@@ -436,7 +540,7 @@
       document.getElementById('clear-btn').classList.remove('show');
       document.getElementById('active-indicator').classList.remove('show');
       clearInterval(countdownTimer);
-      document.getElementById('fire-btn').disabled = !carB64;
+      document.getElementById('fire-btn').disabled = !carFile;
     } catch (err) {
       setStatus('error', `❌ ${err.message}`);
     }
@@ -451,14 +555,14 @@
 
     let s = seconds;
     function tick() {
-      const m = Math.floor(s / 60);
+      const m  = Math.floor(s / 60);
       const ss = (s % 60).toString().padStart(2, '0');
       display.textContent = `${m}:${ss}`;
       if (s <= 0) {
         clearInterval(countdownTimer);
         indicator.classList.remove('show');
         document.getElementById('clear-btn').classList.remove('show');
-        document.getElementById('fire-btn').disabled = !carB64;
+        document.getElementById('fire-btn').disabled = !carFile;
         setStatus('success', '✅ Alert expired and was automatically cleared from the TV.');
       }
       s--;
@@ -467,7 +571,7 @@
     countdownTimer = setInterval(tick, 1000);
   }
 
-  // ── CHECK ON LOAD (in case alert already active) ─────────
+  // ── CHECK ON LOAD ────────────────────────────────────────
   async function checkExisting() {
     try {
       const res  = await fetch('/api/alert');
@@ -480,6 +584,7 @@
     } catch (_) {}
   }
 
+  checkSetup();
   checkExisting();
 </script>
 </body>
