@@ -268,30 +268,6 @@
     line-height: 1.7;
   }
 
-  /* SETUP CARD */
-  .setup-card { border-color: #554400; background: #0e0c00; }
-  .setup-card .card-header { border-color: #554400; }
-  .setup-card .card-header h1 em { color: var(--amber); }
-
-  .field-group { display: flex; flex-direction: column; gap: 6px; }
-  .field-label { font-size: 0.75rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
-  .field-input {
-    background: #0d0d0d; border: 1px solid #333; border-radius: 8px;
-    color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.95rem;
-    padding: 12px 14px; outline: none; transition: border-color 0.2s;
-  }
-  .field-input:focus { border-color: var(--amber); }
-
-  .setup-btn {
-    width: 100%; padding: 15px; background: var(--amber); color: #000;
-    border: none; border-radius: 8px; font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.4rem; letter-spacing: 3px; cursor: pointer; transition: opacity 0.2s;
-  }
-  .setup-btn:hover { opacity: 0.88; }
-
-  .setup-hint { font-size: 0.78rem; color: #444; line-height: 1.7; }
-  .setup-hint strong { color: #666; }
-
   /* PROGRESS BAR */
   .prog-wrap { display: none; flex-direction: column; gap: 8px; }
   .prog-wrap.show { display: flex; }
@@ -305,29 +281,6 @@
 <div class="page-header">
   <div class="logo">IANWC <em>//</em> Admin</div>
   <a class="tv-link" href="/display" target="_blank">📺 Open TV Display →</a>
-</div>
-
-<!-- CLOUDINARY SETUP (shown once if credentials not saved) -->
-<div class="card setup-card" id="setup-card" style="display:none;">
-  <div class="card-header">
-    <h1>⚙️ <em>CLOUDINARY</em><br>SETUP</h1>
-    <p>Images upload from your phone directly to Cloudinary — free, unlimited size. Takes 2 minutes to set up once.</p>
-  </div>
-  <div class="card-body">
-    <div class="field-group">
-      <label class="field-label">Cloud Name</label>
-      <input type="text" id="cloud-name-input" class="field-input" placeholder="e.g. dxyz123abc" autocorrect="off" autocapitalize="none">
-    </div>
-    <div class="field-group">
-      <label class="field-label">Upload Preset <span style="color:#333">(must be Unsigned)</span></label>
-      <input type="text" id="preset-input" class="field-input" placeholder="e.g. parking_unsigned" autocorrect="off" autocapitalize="none">
-    </div>
-    <button class="setup-btn" onclick="saveCloudinaryConfig()">Save &amp; Continue →</button>
-    <p class="setup-hint">
-      <strong>Cloud Name:</strong> cloudinary.com → Dashboard<br>
-      <strong>Upload Preset:</strong> Settings → Upload → Upload Presets → Add preset → set Signing Mode to <strong>Unsigned</strong>
-    </p>
-  </div>
 </div>
 
 <!-- ACTIVE ALERT INDICATOR -->
@@ -399,28 +352,9 @@
   // ── CLOUDINARY CONFIG ────────────────────────────────────
   function getCloudinaryConfig() {
     return {
-      cloudName:    localStorage.getItem('cld_cloud_name'),
-      uploadPreset: localStorage.getItem('cld_upload_preset'),
+      cloudName:    'dvoigihv4',
+      uploadPreset: '1ea6f751-4a4a-4b6b-99eb-c198561397f1',
     };
-  }
-
-  function saveCloudinaryConfig() {
-    const cloudName    = document.getElementById('cloud-name-input').value.trim();
-    const uploadPreset = document.getElementById('preset-input').value.trim();
-    if (!cloudName || !uploadPreset) {
-      alert('Please fill in both fields.');
-      return;
-    }
-    localStorage.setItem('cld_cloud_name', cloudName);
-    localStorage.setItem('cld_upload_preset', uploadPreset);
-    document.getElementById('setup-card').style.display = 'none';
-  }
-
-  function checkSetup() {
-    const { cloudName, uploadPreset } = getCloudinaryConfig();
-    if (!cloudName || !uploadPreset) {
-      document.getElementById('setup-card').style.display = 'flex';
-    }
   }
 
   // ── CLOUDINARY UPLOAD (direct from browser, no Vercel) ──
@@ -584,7 +518,6 @@
     } catch (_) {}
   }
 
-  checkSetup();
   checkExisting();
 </script>
 </body>
