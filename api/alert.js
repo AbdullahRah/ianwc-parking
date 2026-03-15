@@ -1,4 +1,7 @@
-import { sql } from '@vercel/postgres';
+import { createPool } from '@vercel/postgres';
+
+const db = createPool({ connectionString: process.env.storage_POSTGRES_URL });
+const sql = db.sql.bind(db);
 
 const DURATION_MS = 90 * 1000;
 
