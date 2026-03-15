@@ -6,97 +6,73 @@
 <title>IANWC — Parking Alert Display</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --red: #FF1A1A;
-    --red-dark: #B00000;
-    --amber: #FFA500;
-    --bg: #080808;
-    --panel: #111;
-    --border: #222;
-    --text: #F2F2F2;
-    --muted: #555;
-    --header-h: 80px;
-    --ticker-h: 90px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
-
-  /* STANDBY */
-  #standby { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; }
-  .sb-logo { font-family: 'Bebas Neue', sans-serif; font-size: clamp(4rem, 10vw, 9rem); letter-spacing: 8px; color: #181818; text-align: center; }
-  .sb-logo em { color: #1e1e1e; font-style: normal; }
-  .sb-status { display: flex; align-items: center; gap: 12px; font-family: 'Bebas Neue', sans-serif; font-size: clamp(1rem, 2.5vw, 1.8rem); letter-spacing: 4px; color: #1e1e1e; }
-  .sb-dot { width: 10px; height: 10px; border-radius: 50%; background: #1e1e1e; animation: sb-pulse 2s ease-in-out infinite; }
-  @keyframes sb-pulse { 50% { background: #2a2a2a; } }
-  .sb-clock { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2rem, 5vw, 5rem); letter-spacing: 6px; color: #161616; }
-
-  /* ALERT SCREEN */
-  #alert-screen { display: none; width: 100%; height: 100%; flex-direction: column; animation: burst-in 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
-  @keyframes burst-in { from { opacity: 0; transform: scale(1.03); } to { opacity: 1; transform: scale(1); } }
-  #alert-screen.on { display: flex; }
-
-  .tv-hdr { height: var(--header-h); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 48px; background: #0c0c0c; border-bottom: 2px solid #1a1a1a; }
-  .hdr-logo { font-family: 'Bebas Neue', sans-serif; font-size: 2.2rem; letter-spacing: 3px; }
-  .hdr-logo em { color: var(--red); font-style: normal; }
-  .hdr-badge { display: flex; align-items: center; gap: 14px; }
-  .pulse-dot { width: 18px; height: 18px; border-radius: 50%; background: var(--red); animation: pdot 0.7s ease-in-out infinite alternate; }
-  @keyframes pdot { from { transform: scale(0.7); opacity: 0.6; box-shadow: 0 0 0 0 rgba(255,26,26,0.6); } to { transform: scale(1.2); opacity: 1; box-shadow: 0 0 0 14px rgba(255,26,26,0); } }
-  .badge-txt { font-family: 'Bebas Neue', sans-serif; font-size: 1.9rem; letter-spacing: 3px; color: var(--red); }
-  .hdr-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-  .hdr-clock { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 2px; color: #444; }
-  .hdr-countdown { font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 2px; color: var(--red); }
-
-  .tv-body { flex: 1; display: grid; grid-template-columns: 1fr 370px; overflow: hidden; min-height: 0; }
-  .car-panel { position: relative; background: #000; overflow: hidden; border-right: 2px solid #1a1a1a; }
-  #car-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .car-vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(150,0,0,0.35) 100%); pointer-events: none; }
-  .car-caption { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.9)); padding: 50px 36px 22px; font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; letter-spacing: 2px; color: rgba(255,255,255,0.35); }
-
-  .right-panel { background: var(--panel); display: flex; flex-direction: column; overflow: hidden; }
-  .alert-head { padding: 26px 28px 20px; border-bottom: 1px solid var(--border); animation: head-flash 1s step-start infinite; }
-  @keyframes head-flash { 50% { background: rgba(255,26,26,0.055); } }
-  .alert-head h2 { font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem; letter-spacing: 2px; color: var(--red); line-height: 1.05; }
-  .alert-head p { margin-top: 8px; font-size: 0.93rem; color: #666; line-height: 1.6; }
-
-  .cbar-wrap { padding: 14px 28px 0; flex-shrink: 0; }
-  .cbar-meta { display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
-  .cbar-meta span:last-child { color: var(--red); }
-  .cbar-track { height: 6px; background: #1a1a1a; border-radius: 3px; overflow: hidden; }
-  #cbar-fill { height: 100%; background: var(--red); border-radius: 3px; width: 100%; transition: width 1s linear; }
-
-  .plate-sec { padding: 16px 28px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .sec-lbl { font-size: 0.7rem; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--amber); margin-bottom: 10px; }
-  .plate-wrap { border: 2.5px solid var(--amber); border-radius: 6px; overflow: hidden; box-shadow: 0 0 30px rgba(255,165,0,0.15); }
-  #plate-img { width: 100%; height: 145px; object-fit: cover; display: block; }
-  .no-plate { height: 70px; display: flex; align-items: center; justify-content: center; color: #252525; font-size: 0.78rem; letter-spacing: 2px; text-transform: uppercase; border: 1.5px dashed #1e1e1e; border-radius: 6px; }
-
-  .actions { flex: 1; padding: 16px 28px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
-  .act-item { display: flex; align-items: flex-start; gap: 14px; padding: 13px 15px; background: #191919; border-radius: 6px; border-left: 3px solid var(--red); flex-shrink: 0; }
-  .act-icon { font-size: 1.25rem; flex-shrink: 0; }
-  .act-txt { font-size: 0.88rem; color: #aaa; line-height: 1.5; }
-  .act-txt strong { display: block; color: var(--text); font-size: 0.93rem; margin-bottom: 1px; }
-
-  #ticker { height: var(--ticker-h); flex-shrink: 0; display: flex; flex-direction: column; }
-  .stripe { height: 10px; flex-shrink: 0; background: repeating-linear-gradient(90deg, #FFD700 0, #FFD700 30px, #000 30px, #000 60px); animation: stripe-roll 0.5s linear infinite; }
-  @keyframes stripe-roll { to { background-position: 60px 0; } }
-  .ticker-inner { flex: 1; overflow: hidden; display: flex; align-items: center; animation: flash-red 0.7s step-start infinite; }
-  @keyframes flash-red { 0%, 100% { background: var(--red); } 50% { background: var(--red-dark); } }
-  .ticker-track { display: flex; width: max-content; animation: scroll-left 22s linear infinite; }
-  @keyframes scroll-left { to { transform: translateX(-50%); } }
-  .ticker-chunk { font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem; letter-spacing: 5px; color: #fff; white-space: nowrap; padding: 0 80px; display: flex; align-items: center; gap: 32px; text-shadow: 0 2px 10px rgba(0,0,0,0.3); }
-  .dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.35); flex-shrink: 0; }
+  :root{--red:#FF1A1A;--red-dark:#B00000;--amber:#FFA500;--bg:#080808;--panel:#111;--border:#222;--text:#F2F2F2;--muted:#555;--header-h:80px;--ticker-h:90px}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif}
+  #standby{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px}
+  .sb-logo{font-family:'Bebas Neue',sans-serif;font-size:clamp(4rem,10vw,9rem);letter-spacing:8px;color:#181818;text-align:center}
+  .sb-logo em{color:#1e1e1e;font-style:normal}
+  .sb-status{display:flex;align-items:center;gap:12px;font-family:'Bebas Neue',sans-serif;font-size:clamp(1rem,2.5vw,1.8rem);letter-spacing:4px;color:#1e1e1e}
+  .sb-dot{width:10px;height:10px;border-radius:50%;background:#1e1e1e;animation:sb-pulse 2s ease-in-out infinite}
+  @keyframes sb-pulse{50%{background:#2a2a2a}}
+  .sb-clock{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,5vw,5rem);letter-spacing:6px;color:#161616}
+  #alert-screen{display:none;width:100%;height:100%;flex-direction:column;animation:burst-in .4s cubic-bezier(.22,1,.36,1)}
+  @keyframes burst-in{from{opacity:0;transform:scale(1.03)}to{opacity:1;transform:scale(1)}}
+  #alert-screen.on{display:flex}
+  .tv-hdr{height:var(--header-h);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 48px;background:#0c0c0c;border-bottom:2px solid #1a1a1a}
+  .hdr-logo{font-family:'Bebas Neue',sans-serif;font-size:2.2rem;letter-spacing:3px}
+  .hdr-logo em{color:var(--red);font-style:normal}
+  .hdr-badge{display:flex;align-items:center;gap:14px}
+  .pulse-dot{width:18px;height:18px;border-radius:50%;background:var(--red);animation:pdot .7s ease-in-out infinite alternate}
+  @keyframes pdot{from{transform:scale(.7);opacity:.6;box-shadow:0 0 0 0 rgba(255,26,26,.6)}to{transform:scale(1.2);opacity:1;box-shadow:0 0 0 14px rgba(255,26,26,0)}}
+  .badge-txt{font-family:'Bebas Neue',sans-serif;font-size:1.9rem;letter-spacing:3px;color:var(--red)}
+  .hdr-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+  .hdr-clock{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:2px;color:#444}
+  .hdr-countdown{font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:2px;color:var(--red)}
+  .tv-body{flex:1;display:grid;grid-template-columns:1fr 370px;overflow:hidden;min-height:0}
+  .car-panel{position:relative;background:#000;overflow:hidden;border-right:2px solid #1a1a1a}
+  #car-img{width:100%;height:100%;object-fit:cover;display:block}
+  .car-vignette{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 45%,rgba(150,0,0,.35) 100%);pointer-events:none}
+  .car-caption{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.9));padding:50px 36px 22px;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:2px;color:rgba(255,255,255,.35)}
+  .right-panel{background:var(--panel);display:flex;flex-direction:column;overflow:hidden}
+  .alert-head{padding:26px 28px 20px;border-bottom:1px solid var(--border);animation:head-flash 1s step-start infinite}
+  @keyframes head-flash{50%{background:rgba(255,26,26,.055)}}
+  .alert-head h2{font-family:'Bebas Neue',sans-serif;font-size:2.5rem;letter-spacing:2px;color:var(--red);line-height:1.05}
+  .alert-head p{margin-top:8px;font-size:.93rem;color:#666;line-height:1.6}
+  .cbar-wrap{padding:14px 28px 0;flex-shrink:0}
+  .cbar-meta{display:flex;justify-content:space-between;font-size:.7rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .cbar-meta span:last-child{color:var(--red)}
+  .cbar-track{height:6px;background:#1a1a1a;border-radius:3px;overflow:hidden}
+  #cbar-fill{height:100%;background:var(--red);border-radius:3px;width:100%;transition:width 1s linear}
+  .plate-sec{padding:16px 28px;border-bottom:1px solid var(--border);flex-shrink:0}
+  .sec-lbl{font-size:.7rem;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--amber);margin-bottom:10px}
+  .plate-wrap{border:2.5px solid var(--amber);border-radius:6px;overflow:hidden;box-shadow:0 0 30px rgba(255,165,0,.15)}
+  #plate-img{width:100%;height:145px;object-fit:cover;display:block}
+  .no-plate{height:70px;display:flex;align-items:center;justify-content:center;color:#252525;font-size:.78rem;letter-spacing:2px;text-transform:uppercase;border:1.5px dashed #1e1e1e;border-radius:6px}
+  .actions{flex:1;padding:16px 28px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+  .act-item{display:flex;align-items:flex-start;gap:14px;padding:13px 15px;background:#191919;border-radius:6px;border-left:3px solid var(--red);flex-shrink:0}
+  .act-icon{font-size:1.25rem;flex-shrink:0}
+  .act-txt{font-size:.88rem;color:#aaa;line-height:1.5}
+  .act-txt strong{display:block;color:var(--text);font-size:.93rem;margin-bottom:1px}
+  #ticker{height:var(--ticker-h);flex-shrink:0;display:flex;flex-direction:column}
+  .stripe{height:10px;flex-shrink:0;background:repeating-linear-gradient(90deg,#FFD700 0,#FFD700 30px,#000 30px,#000 60px);animation:stripe-roll .5s linear infinite}
+  @keyframes stripe-roll{to{background-position:60px 0}}
+  .ticker-inner{flex:1;overflow:hidden;display:flex;align-items:center;animation:flash-red .7s step-start infinite}
+  @keyframes flash-red{0%,100%{background:var(--red)}50%{background:var(--red-dark)}}
+  .ticker-track{display:flex;width:max-content;animation:scroll-left 22s linear infinite}
+  @keyframes scroll-left{to{transform:translateX(-50%)}}
+  .ticker-chunk{font-family:'Bebas Neue',sans-serif;font-size:2.5rem;letter-spacing:5px;color:#fff;white-space:nowrap;padding:0 80px;display:flex;align-items:center;gap:32px;text-shadow:0 2px 10px rgba(0,0,0,.3)}
+  .dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.35);flex-shrink:0}
 </style>
 </head>
 <body>
 
-<!-- STANDBY -->
 <div id="standby">
   <div class="sb-logo">IANWC <em>//</em><br>PARKING ALERT</div>
   <div class="sb-status"><div class="sb-dot"></div>MONITORING — NO ACTIVE ALERTS</div>
   <div class="sb-clock" id="sb-clock">—</div>
 </div>
 
-<!-- ALERT -->
 <div id="alert-screen">
   <div class="tv-hdr">
     <div class="hdr-logo">IANWC <em>//</em> Parking Alert</div>
@@ -106,33 +82,28 @@
       <div class="hdr-countdown" id="hdr-cd">—</div>
     </div>
   </div>
-
   <div class="tv-body">
     <div class="car-panel">
       <img id="car-img" alt="Illegally parked vehicle">
       <div class="car-vignette"></div>
       <div class="car-caption">ILLEGALLY PARKED VEHICLE — PLEASE MOVE IMMEDIATELY</div>
     </div>
-
     <div class="right-panel">
       <div class="alert-head">
         <h2>⚠ MOVE YOUR<br>VEHICLE NOW</h2>
         <p>A vehicle is blocking access or parked illegally on IANWC property.</p>
       </div>
-
       <div class="cbar-wrap">
         <div class="cbar-meta"><span>Alert Auto-Clears</span><span id="cbar-lbl">5:00</span></div>
         <div class="cbar-track"><div id="cbar-fill"></div></div>
       </div>
-
       <div class="plate-sec">
         <div class="sec-lbl">⚠ License Plate</div>
-        <div class="plate-wrap" id="plate-wrap" style="display:none;">
+        <div class="plate-wrap" id="plate-wrap" style="display:none">
           <img id="plate-img" alt="License plate">
         </div>
         <div class="no-plate" id="no-plate">No plate photo provided</div>
       </div>
-
       <div class="actions">
         <div class="act-item"><div class="act-icon">🚗</div><div class="act-txt"><strong>Is this your car?</strong>Move it immediately from the restricted area.</div></div>
         <div class="act-item"><div class="act-icon">🤝</div><div class="act-txt"><strong>Know the owner?</strong>Please inform them right away.</div></div>
@@ -140,27 +111,12 @@
       </div>
     </div>
   </div>
-
   <div id="ticker">
     <div class="stripe"></div>
     <div class="ticker-inner">
       <div class="ticker-track">
-        <div class="ticker-chunk">
-          ⚠ ATTENTION — ILLEGALLY PARKED VEHICLE — OWNER MUST MOVE CAR IMMEDIATELY
-          <span class="dot"></span> PLEASE CHECK YOUR VEHICLE IN THE PARKING LOT
-          <span class="dot"></span> SEE FRONT DESK OR MASJID STAFF FOR ASSISTANCE
-          <span class="dot"></span> FAILURE TO MOVE MAY RESULT IN TOWING
-          <span class="dot"></span> جزاكم الله خيرا — THANK YOU FOR YOUR COOPERATION
-          <span class="dot"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        </div>
-        <div class="ticker-chunk" aria-hidden="true">
-          ⚠ ATTENTION — ILLEGALLY PARKED VEHICLE — OWNER MUST MOVE CAR IMMEDIATELY
-          <span class="dot"></span> PLEASE CHECK YOUR VEHICLE IN THE PARKING LOT
-          <span class="dot"></span> SEE FRONT DESK OR MASJID STAFF FOR ASSISTANCE
-          <span class="dot"></span> FAILURE TO MOVE MAY RESULT IN TOWING
-          <span class="dot"></span> جزاكم الله خيرا — THANK YOU FOR YOUR COOPERATION
-          <span class="dot"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-        </div>
+        <div class="ticker-chunk">⚠ ATTENTION — ILLEGALLY PARKED VEHICLE — OWNER MUST MOVE CAR IMMEDIATELY <span class="dot"></span> PLEASE CHECK YOUR VEHICLE IN THE PARKING LOT <span class="dot"></span> SEE FRONT DESK OR MASJID STAFF FOR ASSISTANCE <span class="dot"></span> FAILURE TO MOVE MAY RESULT IN TOWING <span class="dot"></span> جزاكم الله خيرا — THANK YOU FOR YOUR COOPERATION <span class="dot"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
+        <div class="ticker-chunk" aria-hidden="true">⚠ ATTENTION — ILLEGALLY PARKED VEHICLE — OWNER MUST MOVE CAR IMMEDIATELY <span class="dot"></span> PLEASE CHECK YOUR VEHICLE IN THE PARKING LOT <span class="dot"></span> SEE FRONT DESK OR MASJID STAFF FOR ASSISTANCE <span class="dot"></span> FAILURE TO MOVE MAY RESULT IN TOWING <span class="dot"></span> جزاكم الله خيرا — THANK YOU FOR YOUR COOPERATION <span class="dot"></span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</div>
       </div>
     </div>
     <div class="stripe"></div>
@@ -168,23 +124,13 @@
 </div>
 
 <script type="module">
-  import { initializeApp }    from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-  import { initializeFirestore, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-  // ── REPLACE WITH YOUR FIREBASE CONFIG ────────────────────
-  const app = initializeApp({
-    apiKey:            "AIzaSyDInrTuoeFeHkhxNQ-6l75q-Q6SRlhEto0",
-    authDomain:        "ianwc-parking.firebaseapp.com",
-    projectId:         "ianwc-parking",
-    storageBucket:     "ianwc-parking.firebasestorage.app",
-    messagingSenderId: "345342471355",
-    appId:             "1:345342471355:web:bcc6b21ff1435d43af4d9e",
-  });
-  // ─────────────────────────────────────────────────────────
+  const SUPABASE_URL = 'https://zhhbcwcaucmmcwgtghfn.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoaGJjd2NhdWNtbWN3Z3RnaGZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NTc2MDUsImV4cCI6MjA4OTEzMzYwNX0.yTG3zs-r2THULL6Z_DEaUijyGtxlQ2dadWEyp8580dw';
+  const TOTAL = 5 * 60;
 
-  const db       = initializeFirestore(app, { experimentalForceLongPolling: true });
-  const alertRef = doc(db, 'alerts', 'current');
-  const TOTAL    = 5 * 60; // 5 minutes
+  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
   let cdTimer       = null;
   let secondsLeft   = 0;
@@ -204,7 +150,6 @@
   function showAlert(carUrl, plateUrl, firedAt) {
     activeFiredAt = firedAt;
     document.getElementById('car-img').src = carUrl;
-
     if (plateUrl) {
       document.getElementById('plate-img').src = plateUrl;
       document.getElementById('plate-wrap').style.display = 'block';
@@ -213,10 +158,8 @@
       document.getElementById('plate-wrap').style.display = 'none';
       document.getElementById('no-plate').style.display   = 'flex';
     }
-
     document.getElementById('standby').style.display = 'none';
     document.getElementById('alert-screen').classList.add('on');
-
     const elapsed   = Date.now() - firedAt;
     const remaining = Math.max(0, Math.ceil((TOTAL * 1000 - elapsed) / 1000));
     startCountdown(remaining);
@@ -250,18 +193,28 @@
     document.getElementById('cbar-fill').style.width = `${(secondsLeft / TOTAL) * 100}%`;
   }
 
-  // ── REAL-TIME LISTENER ────────────────────────────────────
-  onSnapshot(alertRef, (snap) => {
-    const data = snap.data();
-    if (data?.active) {
-      // Only re-render if this is a new alert
-      if (data.firedAt !== activeFiredAt) {
-        showAlert(data.carUrl, data.plateUrl, data.firedAt);
-      }
-    } else {
-      if (activeFiredAt !== null) hideAlert();
+  // ── INITIAL LOAD ──────────────────────────────────────────
+  const { data: initial } = await supabase
+    .from('alert_state').select('*').eq('id', 1).single();
+
+  if (initial?.active) {
+    const elapsed = Date.now() - initial.fired_at;
+    if (elapsed < TOTAL * 1000) {
+      showAlert(initial.car_url, initial.plate_url, initial.fired_at);
     }
-  });
+  }
+
+  // ── REAL-TIME LISTENER ────────────────────────────────────
+  supabase.channel('alert-display')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'alert_state' }, (payload) => {
+      const data = payload.new;
+      if (data.active && data.fired_at !== activeFiredAt) {
+        showAlert(data.car_url, data.plate_url, data.fired_at);
+      } else if (!data.active && activeFiredAt !== null) {
+        hideAlert();
+      }
+    })
+    .subscribe();
 </script>
 </body>
 </html>
