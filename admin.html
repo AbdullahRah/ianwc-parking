@@ -142,7 +142,7 @@
 
 <script type="module">
   import { initializeApp }    from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-  import { getFirestore, doc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+  import { getFirestore, doc, getDoc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
   import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js';
 
   // ── REPLACE WITH YOUR FIREBASE CONFIG ────────────────────
@@ -245,6 +245,14 @@
     setStatus('loading', '<div class="spin"></div><span>Uploading photos…</span>');
 
     try {
+      // Delete any previous alert images before uploading new ones
+      const prevSnap = await getDoc(alertRef);
+      if (prevSnap.exists()) {
+        const prev = prevSnap.data();
+        if (prev.carPath)   await deleteObject(ref(storage, prev.carPath)).catch(() => {});
+        if (prev.platePath) await deleteObject(ref(storage, prev.platePath)).catch(() => {});
+      }
+
       const ts      = Date.now();
       const carPath = `alerts/${ts}/car.jpg`;
       setProgress(20, 'Uploading car photo…');
