@@ -1,16 +1,42 @@
 // api/alert.js
-// Vercel Serverless Function — stores alert state in Vercel KV
-// Images are uploaded directly from the browser to Cloudinary.
-// This function only ever handles tiny URLs, never image data.
-//
-// GET    /api/alert  → returns current active alert
-// POST   /api/alert  → fires alert { carUrl, plateUrl }
-// DELETE /api/alert  → clears the alert
+// State stored as a raw JSON file in Cloudinary — no Vercel KV or Blob needed.
+// Images are uploaded directly from the browser to Cloudinary (never touch Vercel).
+// Only the tiny state JSON (a few hundred bytes) is written here.
 
-import { kv } from '@vercel/kv';
+const CLOUD_NAME    = 'dvoigihv4';
+const UPLOAD_PRESET = 'qe91hdkq';
+const STATE_ID      = 'ianwc-parking-state';
+const DURATION_MS   = 90 * 1000;
 
-const ALERT_KEY   = 'parking:alert';
-const DURATION_MS = 90 * 1000; // 90 seconds
+async function readState() {
+  try {
+    const r = await fetch(
+      `https://res.cloudinary.com/${CLOUD_NAME}/raw/upload/${STATE_ID}?t=${Date.now()}`
+    );
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
+async function writeState(data) {
+  const fd = new FormData();
+  fd.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' }), 'state.json');
+  fd.append('upload_preset', UPLOAD_PRESET);
+  fd.append('public_id', STATE_ID);
+  fd.append('invalidate', 'true');
+
+  const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/raw/upload`, {
+    method: 'POST',
+    body: fd,
+  });
+
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.error?.message || 'Failed to save state');
+  }
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -19,14 +45,14 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
-  // ── GET: poll for current alert ─────────────────────────
+  // ── GET ──────────────────────────────────────────────────
   if (req.method === 'GET') {
-    const alert = await kv.get(ALERT_KEY);
-    if (!alert) { res.json({ active: false }); return; }
+    const state = await readState();
+    if (!state?.active) { res.json({ active: false }); return; }
 
-    const elapsed = Date.now() - alert.firedAt;
+    const elapsed = Date.now() - state.firedAt;
     if (elapsed > DURATION_MS) {
-      await kv.del(ALERT_KEY);
+      await writeState({ active: false });
       res.json({ active: false });
       return;
     }
@@ -34,28 +60,26 @@ export default async function handler(req, res) {
     res.json({
       active:      true,
       secondsLeft: Math.ceil((DURATION_MS - elapsed) / 1000),
-      carUrl:      alert.carUrl,
-      plateUrl:    alert.plateUrl || null,
-      firedAt:     alert.firedAt,
+      carUrl:      state.carUrl,
+      plateUrl:    state.plateUrl || null,
+      firedAt:     state.firedAt,
     });
     return;
   }
 
-  // ── POST: fire a new alert ───────────────────────────────
+  // ── POST ─────────────────────────────────────────────────
   if (req.method === 'POST') {
     const { carUrl, plateUrl } = req.body;
     if (!carUrl) { res.status(400).json({ error: 'carUrl is required' }); return; }
 
-    const firedAt = Date.now();
-    await kv.set(ALERT_KEY, { firedAt, carUrl, plateUrl: plateUrl || null }, { ex: 120 });
-
-    res.json({ success: true, firedAt, secondsLeft: 90 });
+    await writeState({ active: true, firedAt: Date.now(), carUrl, plateUrl: plateUrl || null });
+    res.json({ success: true, secondsLeft: 90 });
     return;
   }
 
-  // ── DELETE: cancel alert ─────────────────────────────────
+  // ── DELETE ───────────────────────────────────────────────
   if (req.method === 'DELETE') {
-    await kv.del(ALERT_KEY);
+    await writeState({ active: false });
     res.json({ success: true });
     return;
   }

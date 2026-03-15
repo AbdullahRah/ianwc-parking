@@ -3,6 +3,5 @@
   "version": "1.0.0",
   "description": "IANWC live parking alert system",
   "dependencies": {
-    "@vercel/kv": "^1.0.0"
   }
 }

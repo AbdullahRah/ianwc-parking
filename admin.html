@@ -430,15 +430,15 @@
 
     try {
       // Upload car image — progress shown in bar
-      document.getElementById('prog-label').textContent = 'Uploading vehicle photo…';
-      const carUrl = await uploadToCloudinary(carFile, 'Vehicle photo');
+      document.getElementById('prog-label').textContent = 'Uploading…';
+      const carUrl = await uploadToCloudinary(carFile, 'Uploading');
 
       // Upload plate image if provided
       let plateUrl = null;
       if (plateFile) {
-        document.getElementById('prog-label').textContent = 'Uploading plate photo…';
+        document.getElementById('prog-label').textContent = 'Uploading…';
         document.getElementById('prog-fill').style.width = '0%';
-        plateUrl = await uploadToCloudinary(plateFile, 'Plate photo');
+        plateUrl = await uploadToCloudinary(plateFile, 'Uploading');
       }
 
       document.getElementById('prog-wrap').classList.remove('show');
