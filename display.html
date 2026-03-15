@@ -169,7 +169,7 @@
 
 <script type="module">
   import { initializeApp }    from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-  import { getFirestore, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+  import { initializeFirestore, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
 
   // ── REPLACE WITH YOUR FIREBASE CONFIG ────────────────────
   const app = initializeApp({
@@ -182,7 +182,7 @@
   });
   // ─────────────────────────────────────────────────────────
 
-  const db       = getFirestore(app);
+  const db       = initializeFirestore(app, { experimentalForceLongPolling: true });
   const alertRef = doc(db, 'alerts', 'current');
   const TOTAL    = 5 * 60; // 5 minutes
 
