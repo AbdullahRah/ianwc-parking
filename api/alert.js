@@ -41,7 +41,7 @@ export default async function handler(req, res) {
     // POST
     if (req.method === 'POST') {
       const { carData, plateData } = req.body;
-      if (!carData) { res.status(400).json({ error: 'carData is required' }); return; }
+      if (!carData || carData === 'data:,') { res.status(400).json({ error: 'Image upload failed — please try again' }); return; }
 
       await sql(
         'UPDATE alert_state SET active = true, fired_at = $1, car_data = $2, plate_data = $3 WHERE id = 1',
