@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "description": "IANWC live parking alert system",
   "dependencies": {
-    "@vercel/postgres": "^0.10.0"
+    "@neondatabase/serverless": "^0.10.4"
   }
 }
