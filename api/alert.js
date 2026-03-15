@@ -1,7 +1,6 @@
 import { createPool } from '@vercel/postgres';
 
 const db = createPool({ connectionString: process.env.storage_POSTGRES_URL });
-const sql = db.sql.bind(db);
 
 const DURATION_MS = 90 * 1000;
 
@@ -17,14 +16,14 @@ export default async function handler(req, res) {
   try {
     // GET
     if (req.method === 'GET') {
-      const { rows } = await sql`SELECT * FROM alert_state WHERE id = 1`;
+      const { rows } = await db.query('SELECT * FROM alert_state WHERE id = 1');
       const state = rows[0];
 
       if (!state?.active) { res.json({ active: false }); return; }
 
       const elapsed = Date.now() - Number(state.fired_at);
       if (elapsed > DURATION_MS) {
-        await sql`UPDATE alert_state SET active = false WHERE id = 1`;
+        await db.query('UPDATE alert_state SET active = false WHERE id = 1');
         res.json({ active: false });
         return;
       }
@@ -44,18 +43,17 @@ export default async function handler(req, res) {
       const { carData, plateData } = req.body;
       if (!carData) { res.status(400).json({ error: 'carData is required' }); return; }
 
-      await sql`
-        UPDATE alert_state
-        SET active = true, fired_at = ${Date.now()}, car_data = ${carData}, plate_data = ${plateData || null}
-        WHERE id = 1
-      `;
+      await db.query(
+        'UPDATE alert_state SET active = true, fired_at = $1, car_data = $2, plate_data = $3 WHERE id = 1',
+        [Date.now(), carData, plateData || null]
+      );
       res.json({ success: true, secondsLeft: 90 });
       return;
     }
 
     // DELETE
     if (req.method === 'DELETE') {
-      await sql`UPDATE alert_state SET active = false WHERE id = 1`;
+      await db.query('UPDATE alert_state SET active = false WHERE id = 1');
       res.json({ success: true });
       return;
     }
