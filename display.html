@@ -498,10 +498,10 @@
 
 <script>
   const TOTAL = 90;
-  let secondsLeft  = 0;
-  let cdTimer      = null;
-  let pollTimer    = null;
-  let activeCarImg = null;
+  let secondsLeft   = 0;
+  let cdTimer       = null;
+  let pollTimer     = null;
+  let activeAlertId = null;
 
   // ── CLOCKS ───────────────────────────────────────────────
   function tick() {
@@ -520,8 +520,8 @@
       const data = await res.json();
 
       if (data.active) {
-        if (data.carUrl !== activeCarImg) {
-          showAlert(data.carUrl, data.plateUrl, data.secondsLeft);
+        if (data.firedAt !== activeAlertId) {
+          showAlert(data.carData, data.plateData, data.secondsLeft, data.firedAt);
         }
       } else {
         if (activeCarImg) hideAlert();
@@ -534,13 +534,13 @@
   pollTimer = setInterval(poll, 3000);
 
   // ── SHOW / HIDE ───────────────────────────────────────────
-  function showAlert(carImg, plateImg, sLeft) {
-    activeCarImg = carImg;
+  function showAlert(carData, plateData, sLeft, firedAt) {
+    activeAlertId = firedAt;
 
-    document.getElementById('car-img').src = carImg;
+    document.getElementById('car-img').src = carData;
 
-    if (plateImg) {
-      document.getElementById('plate-img').src = plateImg;
+    if (plateData) {
+      document.getElementById('plate-img').src = plateData;
       document.getElementById('plate-wrap').style.display = 'block';
       document.getElementById('no-plate').style.display   = 'none';
     } else {
@@ -555,7 +555,7 @@
   }
 
   function hideAlert() {
-    activeCarImg = null;
+    activeAlertId = null;
     clearInterval(cdTimer);
     document.getElementById('alert-screen').classList.remove('on');
     document.getElementById('standby').style.display = 'flex';

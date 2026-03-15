@@ -2,7 +2,7 @@ import { sql } from '@vercel/postgres';
 
 const DURATION_MS = 90 * 1000;
 
-export const config = { api: { bodyParser: true } };
+export const config = { api: { bodyParser: { sizeLimit: '10mb' } } };
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -29,20 +29,21 @@ export default async function handler(req, res) {
       res.json({
         active:      true,
         secondsLeft: Math.ceil((DURATION_MS - elapsed) / 1000),
-        carUrl:      state.car_url,
-        plateUrl:    state.plate_url || null,
+        firedAt:     Number(state.fired_at),
+        carData:     state.car_data,
+        plateData:   state.plate_data || null,
       });
       return;
     }
 
     // POST
     if (req.method === 'POST') {
-      const { carUrl, plateUrl } = req.body;
-      if (!carUrl) { res.status(400).json({ error: 'carUrl is required' }); return; }
+      const { carData, plateData } = req.body;
+      if (!carData) { res.status(400).json({ error: 'carData is required' }); return; }
 
       await sql`
         UPDATE alert_state
-        SET active = true, fired_at = ${Date.now()}, car_url = ${carUrl}, plate_url = ${plateUrl || null}
+        SET active = true, fired_at = ${Date.now()}, car_data = ${carData}, plate_data = ${plateData || null}
         WHERE id = 1
       `;
       res.json({ success: true, secondsLeft: 90 });
