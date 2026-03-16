@@ -1,3 +1,5 @@
+import { ikAuth } from './_lib.js';
+
 export const config = { api: { bodyParser: { sizeLimit: '4mb' } } };
 
 export default async function handler(req, res) {
@@ -15,9 +17,7 @@ export default async function handler(req, res) {
 
     const response = await fetch('https://upload.imagekit.io/api/v1/files/upload', {
       method: 'POST',
-      headers: {
-        Authorization: 'Basic ' + Buffer.from(process.env.IMAGEKIT_PRIVATE_KEY + ':').toString('base64'),
-      },
+      headers: { Authorization: ikAuth() },
       body: form,
     });
 

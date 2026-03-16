@@ -1,5 +1,8 @@
 {
   "version": 2,
+  "crons": [
+    { "path": "/api/cron", "schedule": "*/5 * * * *" }
+  ],
   "routes": [
     { "src": "/admin",    "dest": "/admin.html" },
     { "src": "/display",  "dest": "/display.html" },
