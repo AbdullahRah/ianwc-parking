@@ -1,6 +1,40 @@
-import { neon } from '@neondatabase/serverless';
+const DURATION_MS  = 5 * 60 * 1000;
+const STATE_FOLDER = '/ianwc-state';
+const STATE_FILE   = 'alert.json';
+const ENDPOINT     = 'https://ik.imagekit.io/8gt8xhlts';
 
-const DURATION_MS = 5 * 60 * 1000;
+function ikAuth() {
+  return 'Basic ' + Buffer.from(process.env.IMAGEKIT_PRIVATE_KEY + ':').toString('base64');
+}
+
+async function readState() {
+  try {
+    const url = `${ENDPOINT}${STATE_FOLDER}/${STATE_FILE}?v=${Date.now()}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+async function writeState(state) {
+  const json = JSON.stringify(state);
+  const b64  = Buffer.from(json).toString('base64');
+
+  const form = new FormData();
+  form.append('file', `data:application/json;base64,${b64}`);
+  form.append('fileName', STATE_FILE);
+  form.append('folder', STATE_FOLDER);
+  form.append('useUniqueFileName', 'false');
+  form.append('overwriteFile', 'true');
+
+  await fetch('https://upload.imagekit.io/api/v1/files/upload', {
+    method: 'POST',
+    headers: { Authorization: ikAuth() },
+    body: form,
+  });
+}
 
 export const config = { api: { bodyParser: true } };
 
@@ -11,17 +45,14 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
-  const sql = neon(process.env.storage_POSTGRES_URL);
-
   try {
     if (req.method === 'GET') {
-      const rows = await sql('SELECT * FROM alert_state WHERE id = 1');
-      const state = rows[0];
+      const state = await readState();
       if (!state?.active) { res.json({ active: false }); return; }
 
-      const elapsed = Date.now() - Number(state.fired_at);
+      const elapsed = Date.now() - state.firedAt;
       if (elapsed > DURATION_MS) {
-        await sql('UPDATE alert_state SET active = false WHERE id = 1');
+        await writeState({ active: false });
         res.json({ active: false });
         return;
       }
@@ -29,26 +60,32 @@ export default async function handler(req, res) {
       res.json({
         active:      true,
         secondsLeft: Math.ceil((DURATION_MS - elapsed) / 1000),
-        firedAt:     Number(state.fired_at),
-        carUrl:      state.car_url,
-        plateUrl:    state.plate_url || null,
+        firedAt:     state.firedAt,
+        carUrl:      state.carUrl,
+        plateUrl:    state.plateUrl || null,
       });
       return;
     }
 
     if (req.method === 'POST') {
-      const { carUrl, plateUrl } = req.body;
-      if (!carUrl) { res.status(400).json({ error: 'carUrl is required' }); return; }
-      await sql(
-        'UPDATE alert_state SET active = true, fired_at = $1, car_url = $2, plate_url = $3 WHERE id = 1',
-        [Date.now(), carUrl, plateUrl || null]
-      );
+      const { carUrl, plateUrl, carFileId, plateFileId } = req.body;
+      if (!carUrl) { res.status(400).json({ error: 'carUrl required' }); return; }
+
+      await writeState({
+        active:      true,
+        firedAt:     Date.now(),
+        carUrl,
+        plateUrl:    plateUrl    || null,
+        carFileId,
+        plateFileId: plateFileId || null,
+      });
+
       res.json({ success: true, secondsLeft: 300 });
       return;
     }
 
     if (req.method === 'DELETE') {
-      await sql('UPDATE alert_state SET active = false WHERE id = 1');
+      await writeState({ active: false });
       res.json({ success: true });
       return;
     }

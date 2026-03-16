@@ -1,9 +1,5 @@
 {
   "name": "ianwc-parking-alert",
   "version": "1.0.0",
-  "description": "IANWC live parking alert system",
-  "dependencies": {
-    "@neondatabase/serverless": "^0.10.4",
-    "@supabase/supabase-js": "^2.49.4"
-  }
+  "description": "IANWC live parking alert system"
 }
